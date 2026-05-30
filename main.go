@@ -163,6 +163,7 @@ func main() {
 		}
 	}
 
+	Inv := context.U(context.Inv)
 	Euclidean := context.B(Euclidean)
 	Square := context.U(context.Square)
 	Mul := context.B(context.Mul)
@@ -177,8 +178,8 @@ func main() {
 		"drop": &drop,
 	}
 
-	loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout), Euclidean(set.Get("b"), set.Get("b"))),
-		Euclidean(set.Get("b"), set.Get("b"))))
+	loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout), Inv(Euclidean(set.Get("b"), set.Get("b")))),
+		Inv(Euclidean(set.Get("b"), set.Get("b")))))
 
 	for iteration := range 33 {
 		set.Zero()
