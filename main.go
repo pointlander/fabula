@@ -150,7 +150,7 @@ func main() {
 	width := len(secom[0])
 	context := exp.Context[float64]{}
 	set := context.NewSet()
-	set.Add("a", 2, length)
+	set.Add("a", 3, length)
 	set.AddData("b", length, length)
 	rng := rand.New(rand.NewSource(1))
 	set.InitAdam(rng)
@@ -202,46 +202,129 @@ func main() {
 	}
 
 	a := set.ByName["a"].X
-	pointsa, pointsb := make(plotter.XYs, 0, 8), make(plotter.XYs, 0, 8)
+	pointsa01, pointsb01 := make(plotter.XYs, 0, 8), make(plotter.XYs, 0, 8)
+	pointsa02, pointsb02 := make(plotter.XYs, 0, 8), make(plotter.XYs, 0, 8)
+	pointsa12, pointsb12 := make(plotter.XYs, 0, 8), make(plotter.XYs, 0, 8)
 	for i := range length {
 		if label[i][0] == "1" {
-			pointsa = append(pointsa, plotter.XY{X: a[i*2], Y: a[i*2+1]})
+			pointsa01 = append(pointsa01, plotter.XY{X: a[i*2], Y: a[i*2+1]})
+			pointsa02 = append(pointsa02, plotter.XY{X: a[i*2], Y: a[i*2+2]})
+			pointsa12 = append(pointsa12, plotter.XY{X: a[i*2+1], Y: a[i*2+2]})
 		} else {
-			pointsb = append(pointsb, plotter.XY{X: a[i*2], Y: a[i*2+1]})
+			pointsb01 = append(pointsb01, plotter.XY{X: a[i*2], Y: a[i*2+1]})
+			pointsb02 = append(pointsb02, plotter.XY{X: a[i*2], Y: a[i*2+2]})
+			pointsb12 = append(pointsb12, plotter.XY{X: a[i*2+1], Y: a[i*2+2]})
 		}
-	}
-	p := plot.New()
-
-	p.Title.Text = "y vs x"
-	p.X.Label.Text = "x"
-	p.Y.Label.Text = "y"
-
-	{
-		scatter, err := plotter.NewScatter(pointsa)
-		if err != nil {
-			panic(err)
-		}
-		scatter.GlyphStyle.Radius = vg.Length(1)
-		scatter.GlyphStyle.Shape = draw.CircleGlyph{}
-		scatter.GlyphStyle.Color = color.RGBA{B: 255, A: 255}
-
-		p.Add(scatter)
 	}
 
 	{
-		scatter, err := plotter.NewScatter(pointsb)
+		p := plot.New()
+
+		p.Title.Text = "y vs x"
+		p.X.Label.Text = "x"
+		p.Y.Label.Text = "y"
+
+		{
+			scatter, err := plotter.NewScatter(pointsa01)
+			if err != nil {
+				panic(err)
+			}
+			scatter.GlyphStyle.Radius = vg.Length(1)
+			scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+			scatter.GlyphStyle.Color = color.RGBA{B: 255, A: 255}
+
+			p.Add(scatter)
+		}
+
+		{
+			scatter, err := plotter.NewScatter(pointsb01)
+			if err != nil {
+				panic(err)
+			}
+			scatter.GlyphStyle.Radius = vg.Length(1)
+			scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+			scatter.GlyphStyle.Color = color.RGBA{R: 255, A: 255}
+
+			p.Add(scatter)
+		}
+
+		err = p.Save(8*vg.Inch, 8*vg.Inch, "cluster01.png")
 		if err != nil {
 			panic(err)
 		}
-		scatter.GlyphStyle.Radius = vg.Length(1)
-		scatter.GlyphStyle.Shape = draw.CircleGlyph{}
-		scatter.GlyphStyle.Color = color.RGBA{R: 255, A: 255}
-
-		p.Add(scatter)
 	}
 
-	err = p.Save(8*vg.Inch, 8*vg.Inch, "cluster.png")
-	if err != nil {
-		panic(err)
+	{
+		p := plot.New()
+
+		p.Title.Text = "z vs x"
+		p.X.Label.Text = "x"
+		p.Y.Label.Text = "z"
+
+		{
+			scatter, err := plotter.NewScatter(pointsa02)
+			if err != nil {
+				panic(err)
+			}
+			scatter.GlyphStyle.Radius = vg.Length(1)
+			scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+			scatter.GlyphStyle.Color = color.RGBA{B: 255, A: 255}
+
+			p.Add(scatter)
+		}
+
+		{
+			scatter, err := plotter.NewScatter(pointsb02)
+			if err != nil {
+				panic(err)
+			}
+			scatter.GlyphStyle.Radius = vg.Length(1)
+			scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+			scatter.GlyphStyle.Color = color.RGBA{R: 255, A: 255}
+
+			p.Add(scatter)
+		}
+
+		err = p.Save(8*vg.Inch, 8*vg.Inch, "cluster02.png")
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	{
+		p := plot.New()
+
+		p.Title.Text = "z vs y"
+		p.X.Label.Text = "y"
+		p.Y.Label.Text = "z"
+
+		{
+			scatter, err := plotter.NewScatter(pointsa12)
+			if err != nil {
+				panic(err)
+			}
+			scatter.GlyphStyle.Radius = vg.Length(1)
+			scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+			scatter.GlyphStyle.Color = color.RGBA{B: 255, A: 255}
+
+			p.Add(scatter)
+		}
+
+		{
+			scatter, err := plotter.NewScatter(pointsb12)
+			if err != nil {
+				panic(err)
+			}
+			scatter.GlyphStyle.Radius = vg.Length(1)
+			scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+			scatter.GlyphStyle.Color = color.RGBA{R: 255, A: 255}
+
+			p.Add(scatter)
+		}
+
+		err = p.Save(8*vg.Inch, 8*vg.Inch, "cluster12.png")
+		if err != nil {
+			panic(err)
+		}
 	}
 }
