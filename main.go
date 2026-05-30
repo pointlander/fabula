@@ -72,6 +72,15 @@ func main() {
 			input.Close()
 		}
 	}
+	counta, countb := 0, 0
+	for _, l := range label {
+		if l[0] == "1" {
+			counta++
+		} else {
+			countb++
+		}
+	}
+	fmt.Println(counta, countb)
 	length := len(secom)
 	width := len(secom[0])
 	context := exp.Context[float64]{}
@@ -91,7 +100,7 @@ func main() {
 			if math.IsNaN(f) {
 				f = 0
 			}
-			b[index] = f * .001
+			b[index] = f * .1
 			index++
 		}
 	}
@@ -115,7 +124,7 @@ func main() {
 		set.Zero()
 		l := exp.Gradient(loss).X[0]
 		fmt.Println(iteration, l)
-		set.Adam(exp.B1, exp.B2, .1)
+		set.Adam(exp.B1, exp.B2, .05)
 	}
 
 	a := set.ByName["a"].X
