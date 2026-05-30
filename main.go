@@ -208,7 +208,7 @@ func main() {
 	context := exp.Context[float64]{}
 	set := context.NewSet()
 	set.Add("a", 5, length)
-	set.Add("b", 4, length)
+	set.AddData("b", 4, length)
 	set.InitAdam(rng)
 	for i, value := range b {
 		set.ByName["b"].X[i] = value
