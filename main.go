@@ -148,11 +148,72 @@ func main() {
 	fmt.Println(counta, countb)
 	length := len(secom)
 	width := len(secom[0])
+	var b []float64
+	{
+		context := exp.Context[float64]{}
+		set := context.NewSet()
+		set.Add("w0", width, 4)
+		set.AddBias("b0", 4)
+		set.Add("w1", 8, width)
+		set.AddBias("b1", width)
+		set.AddData("input", width, length)
+		rng := rand.New(rand.NewSource(1))
+		set.InitAdam(rng)
+		input, index := set.ByName["input"], 0
+		for i := range secom {
+			sum := 0.0
+			start := index
+			for ii := range secom[i] {
+				f, err := strconv.ParseFloat(secom[i][ii], 64)
+				if err != nil {
+					panic(err)
+				}
+				if math.IsNaN(f) {
+					f = 0
+				}
+				input.X[index] = f
+				sum += f
+				index++
+			}
+			for range width {
+				input.X[start] /= sum
+				start++
+			}
+		}
+		Mul := context.B(context.Mul)
+		Add := context.B(context.Add)
+		Everett := context.U(context.Everett)
+		Quadratic := context.B(context.Quadratic)
+		Avg := context.U(context.Avg)
+		l0 := Everett(Add(Mul(set.Get("w0"), set.Get("input")), set.Get("b0")))
+		l1 := Add(Mul(set.Get("w1"), l0), set.Get("b1"))
+		loss := Avg(Quadratic(set.Get("input"), l1))
+
+		for iteration := range 1024 {
+			set.Zero()
+			l := exp.Gradient(loss).X[0]
+			fmt.Println(iteration, l)
+			set.Adam(exp.B1, exp.B2, .05)
+		}
+
+		l0 = Add(Mul(set.Get("w0"), set.Get("input")), set.Get("b0"))
+		l0(func(a *exp.V[float64]) bool {
+			b = a.X
+			return true
+		})
+
+	}
+	rng := rand.New(rand.NewSource(1))
 	context := exp.Context[float64]{}
 	set := context.NewSet()
 	set.Add("a", 3, length)
-	set.AddData("b", length, length)
-	rng := rand.New(rand.NewSource(1))
+	set.Add("b", 4, length)
+	set.InitAdam(rng)
+	for i, value := range b {
+		set.ByName["b"].X[i] = value
+	}
+
+	/*set.AddData("b", length, length)
 	set.InitAdam(rng)
 
 	b, index := exp.NewV[float64](width, length), 0
@@ -174,7 +235,7 @@ func main() {
 	b = b.Inv()
 	for i := range b.X {
 		set.ByName["b"].X[i] = b.X[i]
-	}
+	}*/
 
 	//Inv := context.U(context.Inv)
 	//Euclidean := context.B(Euclidean)
@@ -182,7 +243,7 @@ func main() {
 	Mul := context.B(context.Mul)
 	Dropout := context.U(context.Dropout)
 	Quadratic := context.B(context.Quadratic)
-	//T := context.U(context.T)
+	T := context.U(context.T)
 	Avg := context.U(context.Avg)
 
 	drop := .3
@@ -191,8 +252,8 @@ func main() {
 		"drop": &drop,
 	}
 
-	loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout) /*Inv(Euclidean(*/, set.Get("b") /*, set.Get("b")))*/),
-		/*Inv(Euclidean(*/ set.Get("b") /*, set.Get("b")))*/))
+	loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout) /*Inv(Euclidean(*/, T(set.Get("b")) /*, set.Get("b")))*/),
+		/*Inv(Euclidean(*/ T(set.Get("b")) /*, set.Get("b")))*/))
 
 	for iteration := range 512 {
 		set.Zero()
