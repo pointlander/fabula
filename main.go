@@ -27,8 +27,7 @@ import (
 //go:embed secom.zip
 var Data embed.FS
 
-// Euclidean computes the euclidean distance between all row vectors and all row vectors
-func Euclidean[T exp.Number](k exp.Continuation[T], node int, a, b *exp.V[T], options ...map[string]interface{}) bool {
+func euclidean[T exp.Number](a, b *exp.V[T]) *exp.V[T] {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -47,6 +46,14 @@ func Euclidean[T exp.Number](k exp.Continuation[T], node int, a, b *exp.V[T], op
 			c.X = append(c.X, exp.Sqrt(sum))
 		}
 	}
+	return c
+}
+
+// Euclidean computes the euclidean distance between all row vectors and all row vectors
+func Euclidean[T exp.Number](k exp.Continuation[T], node int, a, b *exp.V[T], options ...map[string]interface{}) bool {
+	width := a.S[0]
+	sizeA, sizeB := len(a.X), len(b.X)
+	c := euclidean(a, b)
 	if k(c) {
 		return true
 	}
@@ -144,11 +151,12 @@ func main() {
 	context := exp.Context[float64]{}
 	set := context.NewSet()
 	set.Add("a", 2, length)
-	set.AddData("b", width, length)
+	set.AddData("b", length, length)
 	rng := rand.New(rand.NewSource(1))
 	set.InitAdam(rng)
 
-	b, index := set.ByName["b"].X, 0
+	b, index := exp.NewV[float64](width, length), 0
+	b.X = b.X[:cap(b.X)]
 	for i := range secom {
 		for ii := range secom[i] {
 			f, err := strconv.ParseFloat(secom[i][ii], 64)
@@ -158,13 +166,18 @@ func main() {
 			if math.IsNaN(f) {
 				f = 0
 			}
-			b[index] = f * .1
+			b.X[index] = f * .1
 			index++
 		}
 	}
+	b = euclidean(b, b)
+	b = b.Inv()
+	for i := range b.X {
+		set.ByName["b"].X[i] = b.X[i]
+	}
 
-	Inv := context.U(context.Inv)
-	Euclidean := context.B(Euclidean)
+	//Inv := context.U(context.Inv)
+	//Euclidean := context.B(Euclidean)
 	Square := context.U(context.Square)
 	Mul := context.B(context.Mul)
 	Dropout := context.U(context.Dropout)
@@ -178,10 +191,10 @@ func main() {
 		"drop": &drop,
 	}
 
-	loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout), Inv(Euclidean(set.Get("b"), set.Get("b")))),
-		Inv(Euclidean(set.Get("b"), set.Get("b")))))
+	loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout) /*Inv(Euclidean(*/, set.Get("b") /*, set.Get("b")))*/),
+		/*Inv(Euclidean(*/ set.Get("b") /*, set.Get("b")))*/))
 
-	for iteration := range 33 {
+	for iteration := range 512 {
 		set.Zero()
 		l := exp.Gradient(loss).X[0]
 		fmt.Println(iteration, l)
