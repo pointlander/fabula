@@ -27,6 +27,64 @@ import (
 //go:embed secom.zip
 var Data embed.FS
 
+// Euclidean computes the euclidean distance between all row vectors and all row vectors
+func Euclidean[T exp.Number](k exp.Continuation[T], node int, a, b *exp.V[T], options ...map[string]interface{}) bool {
+	if len(a.S) != 2 || len(b.S) != 2 {
+		panic("tensor needs to have two dimensions")
+	}
+	width := a.S[0]
+	if width != b.S[0] || a.S[1] != b.S[1] {
+		panic("dimensions are not the same")
+	}
+	c, sizeA, sizeB := exp.NewV[T](a.S[1], b.S[1]), len(a.X), len(b.X)
+	for i := 0; i < sizeA; i += width {
+		for ii := 0; ii < sizeB; ii += width {
+			av, bv, sum := a.X[i:i+width], b.X[ii:ii+width], T(0.0)
+			for j, ax := range av {
+				diff := (ax - bv[j])
+				sum += diff * diff
+			}
+			c.X = append(c.X, exp.Sqrt(sum))
+		}
+	}
+	if k(c) {
+		return true
+	}
+	for _, x := range a.D {
+		if exp.IsInf(x) || exp.IsNaN(x) {
+			fmt.Println("euclidean", a.D)
+			panic(x)
+		}
+	}
+	index := 0
+	for i := 0; i < sizeA; i += width {
+		for ii := 0; ii < sizeB; ii += width {
+			av, bv, cx, ad, bd, d := a.X[i:i+width], b.X[ii:ii+width], c.X[index], a.D[i:i+width], b.D[ii:ii+width], c.D[index]
+			for j, ax := range av {
+				if cx == 0 {
+					continue
+				}
+				if exp.IsNaN((ax-bv[j])*d/cx) || exp.IsInf((ax-bv[j])*d/cx) {
+					panic("blah")
+				}
+				if exp.IsNaN((bv[j]-ax)*d/cx) || exp.IsInf((bv[j]-ax)*d/cx) {
+					panic("gah")
+				}
+				ad[j] += (ax - bv[j]) * d / cx
+				bd[j] += (bv[j] - ax) * d / cx
+			}
+			index++
+		}
+	}
+	for _, x := range a.D {
+		if exp.IsInf(x) || exp.IsNaN(x) {
+			fmt.Println("euclidean 2", a.D)
+			panic(x)
+		}
+	}
+	return false
+}
+
 func main() {
 	file, err := Data.Open("secom.zip")
 	if err != nil {
@@ -105,11 +163,12 @@ func main() {
 		}
 	}
 
+	Euclidean := context.B(Euclidean)
 	Square := context.U(context.Square)
 	Mul := context.B(context.Mul)
 	Dropout := context.U(context.Dropout)
 	Quadratic := context.B(context.Quadratic)
-	T := context.U(context.T)
+	//T := context.U(context.T)
 	Avg := context.U(context.Avg)
 
 	drop := .3
@@ -118,9 +177,10 @@ func main() {
 		"drop": &drop,
 	}
 
-	loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout), T(set.Get("b"))), T(set.Get("b"))))
+	loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout), Euclidean(set.Get("b"), set.Get("b"))),
+		Euclidean(set.Get("b"), set.Get("b"))))
 
-	for iteration := range 1024 {
+	for iteration := range 33 {
 		set.Zero()
 		l := exp.Gradient(loss).X[0]
 		fmt.Println(iteration, l)
