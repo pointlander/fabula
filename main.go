@@ -77,7 +77,7 @@ func main() {
 	context := exp.Context[float64]{}
 	set := context.NewSet()
 	set.Add("a", 2, length)
-	set.Add("b", width, length)
+	set.AddData("b", width, length)
 	rng := rand.New(rand.NewSource(1))
 	set.InitAdam(rng)
 
