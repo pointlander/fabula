@@ -16,6 +16,7 @@ import (
 	"math/rand"
 	"strconv"
 
+	"github.com/pointlander/fabula/kmeans"
 	"github.com/pointlander/gradient/exp"
 
 	"gonum.org/v1/plot"
@@ -206,7 +207,7 @@ func main() {
 	rng := rand.New(rand.NewSource(1))
 	context := exp.Context[float64]{}
 	set := context.NewSet()
-	set.Add("a", 3, length)
+	set.Add("a", 5, length)
 	set.Add("b", 4, length)
 	set.InitAdam(rng)
 	for i, value := range b {
@@ -263,6 +264,45 @@ func main() {
 	}
 
 	a := set.ByName["a"].X
+	input := make([][]float64, length)
+	for i := range length {
+		input[i] = make([]float64, set.ByName["a"].S[0])
+		for ii := range input[i] {
+			input[i][ii] = a[i*3+ii]
+		}
+	}
+	meta := make([][]float64, length)
+	for i := range meta {
+		meta[i] = make([]float64, length)
+	}
+	for i := 0; i < 100; i++ {
+		clusters, _, err := kmeans.Kmeans(int64(i+1), input, 2, kmeans.SquaredEuclideanDistance, -1)
+		if err != nil {
+			panic(err)
+		}
+		for i := 0; i < len(meta); i++ {
+			target := clusters[i]
+			for j, v := range clusters {
+				if v == target {
+					meta[i][j]++
+				}
+			}
+		}
+	}
+	clusters, _, err := kmeans.Kmeans(1, meta, 2, kmeans.SquaredEuclideanDistance, -1)
+	if err != nil {
+		panic(err)
+	}
+	aa := make(map[string][2]int)
+	for i := range label {
+		histogram := aa[label[i][0]]
+		histogram[clusters[i]]++
+		aa[label[i][0]] = histogram
+	}
+	for k, v := range aa {
+		fmt.Println(k, v)
+	}
+
 	pointsa01, pointsb01 := make(plotter.XYs, 0, 8), make(plotter.XYs, 0, 8)
 	pointsa02, pointsb02 := make(plotter.XYs, 0, 8), make(plotter.XYs, 0, 8)
 	pointsa12, pointsb12 := make(plotter.XYs, 0, 8), make(plotter.XYs, 0, 8)
