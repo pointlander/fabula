@@ -10,12 +10,18 @@ import (
 	"embed"
 	"encoding/csv"
 	"fmt"
+	"image/color"
 	"io"
 	"math"
 	"math/rand"
 	"strconv"
 
 	"github.com/pointlander/gradient/exp"
+
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
+	"gonum.org/v1/plot/vg/draw"
 )
 
 //go:embed secom.zip
@@ -38,6 +44,7 @@ func main() {
 		panic(err)
 	}
 	var secom [][]string
+	var label [][]string
 	for _, f := range reader.File {
 		if f.Name == "secom.data" {
 			input, err := f.Open()
@@ -47,6 +54,18 @@ func main() {
 			reader := csv.NewReader(input)
 			reader.Comma = ' '
 			secom, err = reader.ReadAll()
+			if err != nil {
+				panic(err)
+			}
+			input.Close()
+		} else if f.Name == "secom_labels.data" {
+			input, err := f.Open()
+			if err != nil {
+				panic(err)
+			}
+			reader := csv.NewReader(input)
+			reader.Comma = ' '
+			label, err = reader.ReadAll()
 			if err != nil {
 				panic(err)
 			}
@@ -97,5 +116,49 @@ func main() {
 		l := exp.Gradient(loss).X[0]
 		fmt.Println(iteration, l)
 		set.Adam(exp.B1, exp.B2, .1)
+	}
+
+	a := set.ByName["a"].X
+	pointsa, pointsb := make(plotter.XYs, 0, 8), make(plotter.XYs, 0, 8)
+	for i := range length {
+		if label[i][0] == "1" {
+			pointsa = append(pointsa, plotter.XY{X: a[i*2], Y: a[i*2+1]})
+		} else {
+			pointsb = append(pointsb, plotter.XY{X: a[i*2], Y: a[i*2+1]})
+		}
+	}
+	p := plot.New()
+
+	p.Title.Text = "y vs x"
+	p.X.Label.Text = "x"
+	p.Y.Label.Text = "y"
+
+	{
+		scatter, err := plotter.NewScatter(pointsa)
+		if err != nil {
+			panic(err)
+		}
+		scatter.GlyphStyle.Radius = vg.Length(1)
+		scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+		scatter.GlyphStyle.Color = color.RGBA{B: 255, A: 255}
+
+		p.Add(scatter)
+	}
+
+	{
+		scatter, err := plotter.NewScatter(pointsb)
+		if err != nil {
+			panic(err)
+		}
+		scatter.GlyphStyle.Radius = vg.Length(1)
+		scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+		scatter.GlyphStyle.Color = color.RGBA{R: 255, A: 255}
+
+		p.Add(scatter)
+	}
+
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "cluster.png")
+	if err != nil {
+		panic(err)
 	}
 }
