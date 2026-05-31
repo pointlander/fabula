@@ -303,6 +303,60 @@ func main() {
 		fmt.Println(k, v)
 	}
 
+	{
+		input := make([][]float64, length)
+		for i := range secom {
+			sum := 0.0
+			input[i] = make([]float64, width)
+			for ii := range secom[i] {
+				f, err := strconv.ParseFloat(secom[i][ii], 64)
+				if err != nil {
+					panic(err)
+				}
+				if math.IsNaN(f) {
+					f = 0
+				}
+				input[i][ii] = f
+				sum += f
+			}
+			for ii := range input[i] {
+				input[i][ii] /= sum
+			}
+		}
+		meta := make([][]float64, length)
+		for i := range meta {
+			meta[i] = make([]float64, length)
+		}
+		for i := 0; i < 100; i++ {
+			clusters, _, err := kmeans.Kmeans(int64(i+1), input, 2, kmeans.SquaredEuclideanDistance, -1)
+			if err != nil {
+				panic(err)
+			}
+			for i := 0; i < len(meta); i++ {
+				target := clusters[i]
+				for j, v := range clusters {
+					if v == target {
+						meta[i][j]++
+					}
+				}
+			}
+		}
+		clusters, _, err := kmeans.Kmeans(1, meta, 2, kmeans.SquaredEuclideanDistance, -1)
+		if err != nil {
+			panic(err)
+		}
+		aa := make(map[string][2]int)
+		for i := range label {
+			histogram := aa[label[i][0]]
+			histogram[clusters[i]]++
+			aa[label[i][0]] = histogram
+		}
+		fmt.Println()
+		for k, v := range aa {
+			fmt.Println(k, v)
+		}
+	}
+
 	pointsa01, pointsb01 := make(plotter.XYs, 0, 8), make(plotter.XYs, 0, 8)
 	pointsa02, pointsb02 := make(plotter.XYs, 0, 8), make(plotter.XYs, 0, 8)
 	pointsa12, pointsb12 := make(plotter.XYs, 0, 8), make(plotter.XYs, 0, 8)
