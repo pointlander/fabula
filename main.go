@@ -14,6 +14,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"sort"
 	"strconv"
 
 	"github.com/pointlander/fabula/kmeans"
@@ -149,6 +150,93 @@ func main() {
 	fmt.Println(counta, countb)
 	length := len(secom)
 	width := len(secom[0])
+	{
+		type Point struct {
+			Index   int
+			Coord   []float64
+			Count   uint64
+			Label   string
+			Cluster uint64
+		}
+		points := make([]Point, length)
+		for i := range length {
+			points[i].Index = i
+			points[i].Coord = make([]float64, width)
+			points[i].Label = label[i][0]
+			for ii := range width {
+				f, err := strconv.ParseFloat(secom[i][ii], 64)
+				if err != nil {
+					panic(err)
+				}
+				if math.IsNaN(f) {
+					f = 0
+				}
+				points[i].Coord[ii] = f
+			}
+		}
+		distribution := make([][]float64, length)
+		for i := range distribution {
+			distribution[i] = make([]float64, length)
+			for ii := range points {
+				distance := 0.0
+				for iii := range points[ii].Coord {
+					diff := points[i].Coord[iii] - points[ii].Coord[iii]
+					distance += diff * diff
+				}
+				distance = math.Sqrt(distance)
+				if distance != 0 {
+					distance = 1 / distance
+				}
+				distribution[i][ii] = distance
+			}
+			sum := 0.0
+			for _, value := range distribution[i] {
+				sum += value
+			}
+			for ii := range distribution[i] {
+				if sum == 0 {
+					continue
+				}
+				distribution[i][ii] /= sum
+			}
+		}
+		rng := rand.New(rand.NewSource(1))
+		current := 0
+		for range 1024 * 1024 {
+			selected, total := rng.Float64(), 0.0
+			for i, value := range distribution[current] {
+				total += value
+				if selected < total {
+					points[i].Count++
+					current = i
+					break
+				}
+			}
+		}
+		sort.Slice(points, func(i, j int) bool {
+			return points[i].Count > points[j].Count
+		})
+		centers := points[0:2]
+		members := points[2:]
+		for i := range members {
+			max := 0.0
+			for ii := range centers {
+				if distance := distribution[members[i].Index][centers[ii].Index]; distance > max {
+					max, members[i].Cluster = distance, uint64(ii)
+				}
+			}
+		}
+		aa := make(map[string][2]int)
+		for i := range points {
+			histogram := aa[points[i].Label]
+			histogram[points[i].Cluster]++
+			aa[points[i].Label] = histogram
+		}
+		fmt.Println()
+		for k, v := range aa {
+			fmt.Println(k, v)
+		}
+	}
 	var b []float64
 	{
 		context := exp.Context[float64]{}
