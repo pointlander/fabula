@@ -214,30 +214,6 @@ func main() {
 		set.ByName["b"].X[i] = value
 	}
 
-	/*set.AddData("b", length, length)
-	set.InitAdam(rng)
-
-	b, index := exp.NewV[float64](width, length), 0
-	b.X = b.X[:cap(b.X)]
-	for i := range secom {
-		for ii := range secom[i] {
-			f, err := strconv.ParseFloat(secom[i][ii], 64)
-			if err != nil {
-				panic(err)
-			}
-			if math.IsNaN(f) {
-				f = 0
-			}
-			b.X[index] = f * .1
-			index++
-		}
-	}
-	b = euclidean(b, b)
-	b = b.Inv()
-	for i := range b.X {
-		set.ByName["b"].X[i] = b.X[i]
-	}*/
-
 	//Inv := context.U(context.Inv)
 	//Euclidean := context.B(Euclidean)
 	Square := context.U(context.Square)
@@ -253,8 +229,8 @@ func main() {
 		"drop": &drop,
 	}
 
-	loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout) /*Inv(Euclidean(*/, T(set.Get("b")) /*, set.Get("b")))*/),
-		/*Inv(Euclidean(*/ Mul(Dropout(Square(set.Get("b")), dropout), T(set.Get("a"))) /*, set.Get("b")))*/))
+	loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout), T(set.Get("b"))),
+		Mul(Dropout(Square(set.Get("b")), dropout), T(set.Get("a")))))
 
 	for iteration := range 1024 {
 		set.Zero()
