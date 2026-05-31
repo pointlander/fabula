@@ -207,7 +207,7 @@ func main() {
 	rng := rand.New(rand.NewSource(1))
 	context := exp.Context[float64]{}
 	set := context.NewSet()
-	set.Add("a", 5, length)
+	set.Add("a", 4, length)
 	set.AddData("b", 4, length)
 	set.InitAdam(rng)
 	for i, value := range b {
@@ -268,7 +268,7 @@ func main() {
 	for i := range length {
 		input[i] = make([]float64, set.ByName["a"].S[0])
 		for ii := range input[i] {
-			input[i][ii] = a[i*3+ii]
+			input[i][ii] = a[i*set.ByName["a"].S[0]+ii]
 		}
 	}
 	meta := make([][]float64, length)
