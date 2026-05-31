@@ -254,9 +254,9 @@ func main() {
 	}
 
 	loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout) /*Inv(Euclidean(*/, T(set.Get("b")) /*, set.Get("b")))*/),
-		/*Inv(Euclidean(*/ T(set.Get("b")) /*, set.Get("b")))*/))
+		/*Inv(Euclidean(*/ Mul(Dropout(Square(set.Get("b")), dropout), T(set.Get("a"))) /*, set.Get("b")))*/))
 
-	for iteration := range 512 {
+	for iteration := range 1024 {
 		set.Zero()
 		l := exp.Gradient(loss).X[0]
 		fmt.Println(iteration, l)
