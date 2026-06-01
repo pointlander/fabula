@@ -13,6 +13,7 @@ import (
 	"image/color"
 	"io"
 	"math"
+	"math/cmplx"
 	"math/rand"
 	"sort"
 	"strconv"
@@ -94,6 +95,137 @@ func Euclidean[T exp.Number](k exp.Continuation[T], node int, a, b *exp.V[T], op
 	return false
 }
 
+// Cluster clusters some points
+func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
+	type Point struct {
+		Index   int
+		Coord   []T
+		Count   uint64
+		Cluster uint64
+	}
+	points := make([]Point, x.S[1])
+	for i := range x.S[1] {
+		points[i].Index = i
+		points[i].Coord = x.X[i*x.S[0] : i*x.S[0]+x.S[0]]
+	}
+	distribution := make([][]T, x.S[1])
+	for i := range distribution {
+		distribution[i] = make([]T, x.S[1])
+		for ii := range points {
+			distance := T(0.0)
+			for iii := range points[ii].Coord {
+				diff := points[i].Coord[iii] - points[ii].Coord[iii]
+				distance += diff * diff
+			}
+			distance = exp.Sqrt(distance)
+			if distance != 0 {
+				distance = 1 / distance
+			}
+			distribution[i][ii] = distance
+		}
+		sum := T(0.0)
+		for _, value := range distribution[i] {
+			sum += value
+		}
+		for ii := range distribution[i] {
+			if sum == 0 {
+				continue
+			}
+			distribution[i][ii] /= sum
+		}
+	}
+	rng := rand.New(rand.NewSource(1))
+	current := 0
+	for range x.S[1] * 1024 {
+		selected, total := exp.Convert[T](rng.Float64()), T(0.0)
+	outer:
+		for i, value := range distribution[current] {
+			total += value
+			switch selected := any(selected).(type) {
+			case float32:
+				if selected < any(total).(float32) {
+					points[i].Count++
+					current = i
+					break outer
+				}
+			case float64:
+				if selected < any(total).(float64) {
+					points[i].Count++
+					current = i
+					break outer
+				}
+			case complex64:
+				if cmplx.Abs(complex128(selected)) < cmplx.Abs(complex128(any(total).(complex64))) {
+					points[i].Count++
+					current = i
+					break outer
+				}
+			case complex128:
+				if cmplx.Abs(selected) < cmplx.Abs(any(total).(complex128)) {
+					points[i].Count++
+					current = i
+					break outer
+				}
+			}
+		}
+	}
+	sort.Slice(points, func(i, j int) bool {
+		return points[i].Count > points[j].Count
+	})
+	variance := func(points []Point) float64 {
+		sum := 0.0
+		for i := range points {
+			sum += float64(points[i].Count)
+		}
+		avg := sum / float64(len(points))
+		v := 0.0
+		for i := range points {
+			diff := avg - float64(points[i].Count)
+			v += diff * diff
+		}
+		return v / float64(len(points))
+	}
+	varab := variance(points)
+	max, index := 0.0, 0
+	for i := 1; i < len(points)-1; i++ {
+		vara, varb := variance(points[0:i]), variance(points[i:len(points)])
+		if diff := varab - (vara + varb); diff > max {
+			max, index = diff, i
+		}
+	}
+	centers := points[0:k]
+	members := points[k:]
+	for i := range members {
+		max := T(0.0)
+		for ii := range centers {
+			distance := distribution[members[i].Index][centers[ii].Index]
+			switch dist := any(distance).(type) {
+			case float32:
+				if dist > any(max).(float32) {
+					max, members[i].Cluster = distance, uint64(ii)
+				}
+			case float64:
+				if dist > any(max).(float64) {
+					max, members[i].Cluster = distance, uint64(ii)
+				}
+			case complex64:
+				if cmplx.Abs(complex128(dist)) > cmplx.Abs(complex128(any(max).(complex64))) {
+					max, members[i].Cluster = distance, uint64(ii)
+				}
+			case complex128:
+				if cmplx.Abs(dist) > cmplx.Abs(any(max).(complex128)) {
+					max, members[i].Cluster = distance, uint64(ii)
+				}
+			}
+		}
+	}
+	clusters := make([]uint64, x.S[1])
+	for i := range points {
+		clusters[points[i].Index] = points[i].Cluster
+	}
+	return clusters, uint64(index)
+}
+
 func main() {
 	file, err := Data.Open("secom.zip")
 	if err != nil {
@@ -151,18 +283,8 @@ func main() {
 	length := len(secom)
 	width := len(secom[0])
 	{
-		type Point struct {
-			Index   int
-			Coord   []float64
-			Count   uint64
-			Label   string
-			Cluster uint64
-		}
-		points := make([]Point, length)
+		x := exp.NewV[float64](width, length)
 		for i := range length {
-			points[i].Index = i
-			points[i].Coord = make([]float64, width)
-			points[i].Label = label[i][0]
 			for ii := range width {
 				f, err := strconv.ParseFloat(secom[i][ii], 64)
 				if err != nil {
@@ -171,88 +293,15 @@ func main() {
 				if math.IsNaN(f) {
 					f = 0
 				}
-				points[i].Coord[ii] = f
+				x.X = append(x.X, f)
 			}
 		}
-		distribution := make([][]float64, length)
-		for i := range distribution {
-			distribution[i] = make([]float64, length)
-			for ii := range points {
-				distance := 0.0
-				for iii := range points[ii].Coord {
-					diff := points[i].Coord[iii] - points[ii].Coord[iii]
-					distance += diff * diff
-				}
-				distance = math.Sqrt(distance)
-				if distance != 0 {
-					distance = 1 / distance
-				}
-				distribution[i][ii] = distance
-			}
-			sum := 0.0
-			for _, value := range distribution[i] {
-				sum += value
-			}
-			for ii := range distribution[i] {
-				if sum == 0 {
-					continue
-				}
-				distribution[i][ii] /= sum
-			}
-		}
-		rng := rand.New(rand.NewSource(1))
-		current := 0
-		for range 1024 * 1024 {
-			selected, total := rng.Float64(), 0.0
-			for i, value := range distribution[current] {
-				total += value
-				if selected < total {
-					points[i].Count++
-					current = i
-					break
-				}
-			}
-		}
-		sort.Slice(points, func(i, j int) bool {
-			return points[i].Count > points[j].Count
-		})
-		variance := func(points []Point) float64 {
-			sum := 0.0
-			for i := range points {
-				sum += float64(points[i].Count)
-			}
-			avg := sum / float64(len(points))
-			v := 0.0
-			for i := range points {
-				diff := avg - float64(points[i].Count)
-				v += diff * diff
-			}
-			return v / float64(len(points))
-		}
-		varab := variance(points)
-		max, index := 0.0, 0
-		for i := 1; i < len(points)-1; i++ {
-			vara, varb := variance(points[0:i]), variance(points[i:len(points)])
-			if diff := varab - (vara + varb); diff > max {
-				max, index = diff, i
-			}
-		}
-		fmt.Println(index, len(points))
-		centers := points[0:2]
-		members := points[2:]
-		for i := range members {
-			max := 0.0
-			for ii := range centers {
-				if distance := distribution[members[i].Index][centers[ii].Index]; distance > max {
-					max, members[i].Cluster = distance, uint64(ii)
-				}
-			}
-		}
+		clusters, _ := Cluster(x, 2)
 		aa := make(map[string][2]int)
-		for i := range points {
-			histogram := aa[points[i].Label]
-			histogram[points[i].Cluster]++
-			aa[points[i].Label] = histogram
+		for i := range clusters {
+			histogram := aa[label[i][0]]
+			histogram[clusters[i]]++
+			aa[label[i][0]] = histogram
 		}
 		fmt.Println()
 		for k, v := range aa {
@@ -387,6 +436,20 @@ func main() {
 	}
 	for k, v := range aa {
 		fmt.Println(k, v)
+	}
+
+	{
+		fmt.Println()
+		clusters, _ := Cluster(set.ByName["a"], 2)
+		aa := make(map[string][2]int)
+		for i := range label {
+			histogram := aa[label[i][0]]
+			histogram[clusters[i]]++
+			aa[label[i][0]] = histogram
+		}
+		for k, v := range aa {
+			fmt.Println(k, v)
+		}
 	}
 
 	{
