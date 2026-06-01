@@ -216,6 +216,28 @@ func main() {
 		sort.Slice(points, func(i, j int) bool {
 			return points[i].Count > points[j].Count
 		})
+		variance := func(points []Point) float64 {
+			sum := 0.0
+			for i := range points {
+				sum += float64(points[i].Count)
+			}
+			avg := sum / float64(len(points))
+			v := 0.0
+			for i := range points {
+				diff := avg - float64(points[i].Count)
+				v += diff * diff
+			}
+			return v / float64(len(points))
+		}
+		varab := variance(points)
+		max, index := 0.0, 0
+		for i := 1; i < len(points)-1; i++ {
+			vara, varb := variance(points[0:i]), variance(points[i:len(points)])
+			if diff := varab - (vara + varb); diff > max {
+				max, index = diff, i
+			}
+		}
+		fmt.Println(index, len(points))
 		centers := points[0:2]
 		members := points[2:]
 		for i := range members {
