@@ -19,7 +19,7 @@ import (
 	"strconv"
 
 	"github.com/pointlander/fabula/kmeans"
-	"github.com/pointlander/gradient/exp"
+	exp "github.com/pointlander/gradient"
 
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
