@@ -280,26 +280,45 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 			break
 		}
 		centroids = next
-		for i := range points {
-			min := T(math.MaxFloat32)
-			for ii := range centroids {
-				distance := distance(points[i].Coord, centroids[ii].Coord)
-				switch dist := any(distance).(type) {
-				case float32:
-					if dist < any(min).(float32) {
-						min, points[i].Cluster = distance, uint64(ii)
+		var min T
+		switch any(min).(type) {
+		case float32:
+			m := float32(math.MaxFloat32)
+			for i := range points {
+				for ii := range centroids {
+					distance := distance(points[i].Coord, centroids[ii].Coord)
+					if distance := any(distance).(float32); distance < m {
+						m, points[i].Cluster = distance, uint64(ii)
 					}
-				case float64:
-					if dist < any(min).(float64) {
-						min, points[i].Cluster = distance, uint64(ii)
+				}
+			}
+		case float64:
+			m := math.MaxFloat64
+			for i := range points {
+				for ii := range centroids {
+					distance := distance(points[i].Coord, centroids[ii].Coord)
+					if distance := any(distance).(float64); distance < m {
+						m, points[i].Cluster = distance, uint64(ii)
 					}
-				case complex64:
-					if cmplx.Abs(complex128(dist)) < cmplx.Abs(complex128(any(min).(complex64))) {
-						min, points[i].Cluster = distance, uint64(ii)
+				}
+			}
+		case complex64:
+			m := math.MaxFloat64
+			for i := range points {
+				for ii := range centroids {
+					distance := distance(points[i].Coord, centroids[ii].Coord)
+					if distance := cmplx.Abs(complex128(any(distance).(complex64))); distance < m {
+						m, points[i].Cluster = distance, uint64(ii)
 					}
-				case complex128:
-					if cmplx.Abs(dist) < cmplx.Abs(any(min).(complex128)) {
-						min, points[i].Cluster = distance, uint64(ii)
+				}
+			}
+		case complex128:
+			m := math.MaxFloat64
+			for i := range points {
+				for ii := range centroids {
+					distance := distance(points[i].Coord, centroids[ii].Coord)
+					if distance := cmplx.Abs(any(distance).(complex128)); distance < m {
+						m, points[i].Cluster = distance, uint64(ii)
 					}
 				}
 			}
