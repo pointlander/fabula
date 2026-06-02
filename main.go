@@ -109,6 +109,34 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 		points[i].Coord = x.X[i*x.S[0] : i*x.S[0]+x.S[0]]
 	}
 	distribution := make([][]T, x.S[1])
+	mean := T(0.0)
+	count := T(0.0)
+	stddev := T(0.0)
+	for i := range distribution {
+		for ii := range points {
+			distance := T(0.0)
+			for iii := range points[ii].Coord {
+				diff := points[i].Coord[iii] - points[ii].Coord[iii]
+				distance += diff * diff
+			}
+			mean += distance
+			count++
+		}
+	}
+	mean /= count
+	for i := range distribution {
+		for ii := range points {
+			distance := T(0.0)
+			for iii := range points[ii].Coord {
+				diff := points[i].Coord[iii] - points[ii].Coord[iii]
+				distance += diff * diff
+			}
+			diff := mean - distance
+			stddev += diff * diff
+		}
+	}
+	stddev = stddev / count
+
 	for i := range distribution {
 		distribution[i] = make([]T, x.S[1])
 		for ii := range points {
@@ -117,11 +145,11 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 				diff := points[i].Coord[iii] - points[ii].Coord[iii]
 				distance += diff * diff
 			}
-			distance = exp.Sqrt(distance)
+			/*distance = exp.Sqrt(distance)
 			if distance != 0 {
 				distance = 1 / distance
-			}
-			distribution[i][ii] = distance
+			}*/
+			distribution[i][ii] = exp.Exp(-distance/(2*stddev)) / exp.Sqrt(2*math.Pi*stddev)
 		}
 		sum := T(0.0)
 		for _, value := range distribution[i] {
