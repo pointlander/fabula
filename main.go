@@ -239,19 +239,23 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 		counts := make([]T, len(centroids))
 		for i := range points {
 			for ii, value := range points[i].Coord {
-				centroids[points[i].Cluster].Coord[ii] += value
+				next[points[i].Cluster].Coord[ii] += value
 			}
 			counts[points[i].Cluster]++
 		}
 		for i := range next {
 			for ii := range next[i].Coord {
+				if counts[i] == 0 {
+					continue
+				}
 				next[i].Coord[ii] /= counts[i]
 			}
 		}
 		done := true
+		sum := T(0.0)
 		for i := range next {
 			distance := distance(next[i].Coord, centroids[i].Coord)
-			fmt.Println(iteration, distance)
+			sum += distance
 			switch d := any(distance).(type) {
 			case float32:
 				if d > float32(1e-6) {
@@ -271,6 +275,7 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 				}
 			}
 		}
+		fmt.Println(iteration, sum)
 		if done {
 			break
 		}
@@ -285,7 +290,7 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 						min, points[i].Cluster = distance, uint64(ii)
 					}
 				case float64:
-					if dist > any(min).(float64) {
+					if dist < any(min).(float64) {
 						min, points[i].Cluster = distance, uint64(ii)
 					}
 				case complex64:
@@ -293,7 +298,7 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 						min, points[i].Cluster = distance, uint64(ii)
 					}
 				case complex128:
-					if cmplx.Abs(dist) > cmplx.Abs(any(min).(complex128)) {
+					if cmplx.Abs(dist) < cmplx.Abs(any(min).(complex128)) {
 						min, points[i].Cluster = distance, uint64(ii)
 					}
 				}
