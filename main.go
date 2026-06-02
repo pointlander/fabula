@@ -109,15 +109,18 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 		points[i].Coord = x.X[i*x.S[0] : i*x.S[0]+x.S[0]]
 	}
 	distribution := make([][]T, x.S[1])
+	distance := func(a, b []T) T {
+		sum := T(0.0)
+		for i, value := range a {
+			diff := value - b[i]
+			sum += diff * diff
+		}
+		return sum
+	}
 	for i := range distribution {
 		distribution[i] = make([]T, x.S[1])
 		for ii := range points {
-			distance := T(0.0)
-			for iii := range points[ii].Coord {
-				diff := points[i].Coord[iii] - points[ii].Coord[iii]
-				distance += diff * diff
-			}
-			distance = exp.Sqrt(distance)
+			distance := distance(points[i].Coord, points[ii].Coord)
 			if distance != 0 {
 				distance = 1 / distance
 			}
@@ -136,7 +139,7 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 	}
 	rng := rand.New(rand.NewSource(1))
 	current := 0
-	for range x.S[1] * 32 * 1024 {
+	for range x.S[1] * 1024 {
 		selected, total := exp.Convert[T](rng.Float64()), T(0.0)
 	outer:
 		for i, value := range distribution[current] {
@@ -193,32 +196,111 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 			max, index = diff, i
 		}
 	}
+
+	centroids := make([]Point, k)
 	centers := points[0:k]
-	members := points[k:]
-	for i := range members {
+	copy(centroids, centers)
+	for i := range centroids {
+		coord := make([]T, len(centroids[i].Coord))
+		copy(coord, centroids[i].Coord)
+		centroids[i].Coord = coord
+	}
+	for i := range points {
 		max := T(0.0)
-		for ii := range centers {
-			distance := distribution[members[i].Index][centers[ii].Index]
+		for ii := range centroids {
+			distance := distribution[points[i].Index][centroids[ii].Index]
 			switch dist := any(distance).(type) {
 			case float32:
 				if dist > any(max).(float32) {
-					max, members[i].Cluster = distance, uint64(ii)
+					max, points[i].Cluster = distance, uint64(ii)
 				}
 			case float64:
 				if dist > any(max).(float64) {
-					max, members[i].Cluster = distance, uint64(ii)
+					max, points[i].Cluster = distance, uint64(ii)
 				}
 			case complex64:
 				if cmplx.Abs(complex128(dist)) > cmplx.Abs(complex128(any(max).(complex64))) {
-					max, members[i].Cluster = distance, uint64(ii)
+					max, points[i].Cluster = distance, uint64(ii)
 				}
 			case complex128:
 				if cmplx.Abs(dist) > cmplx.Abs(any(max).(complex128)) {
-					max, members[i].Cluster = distance, uint64(ii)
+					max, points[i].Cluster = distance, uint64(ii)
 				}
 			}
 		}
 	}
+	for iteration := range 1024 {
+		next := make([]Point, len(centroids))
+		copy(next, centroids)
+		for i := range next {
+			coord := make([]T, len(centroids[i].Coord))
+			centroids[i].Coord = coord
+		}
+		counts := make([]T, len(centroids))
+		for i := range points {
+			for ii, value := range points[i].Coord {
+				centroids[points[i].Cluster].Coord[ii] += value
+			}
+			counts[points[i].Cluster]++
+		}
+		for i := range next {
+			for ii := range next[i].Coord {
+				next[i].Coord[ii] /= counts[i]
+			}
+		}
+		done := true
+		for i := range next {
+			distance := distance(next[i].Coord, centroids[i].Coord)
+			fmt.Println(iteration, distance)
+			switch d := any(distance).(type) {
+			case float32:
+				if d > float32(1e-6) {
+					done = false
+				}
+			case float64:
+				if d > 1e-6 {
+					done = false
+				}
+			case complex64:
+				if cmplx.Abs(complex128(d)) > 1e-6 {
+					done = false
+				}
+			case complex128:
+				if cmplx.Abs(d) > 1e-6 {
+					done = false
+				}
+			}
+		}
+		if done {
+			break
+		}
+		centroids = next
+		for i := range points {
+			min := T(math.MaxFloat32)
+			for ii := range centroids {
+				distance := distance(points[i].Coord, centroids[ii].Coord)
+				switch dist := any(distance).(type) {
+				case float32:
+					if dist < any(min).(float32) {
+						min, points[i].Cluster = distance, uint64(ii)
+					}
+				case float64:
+					if dist > any(min).(float64) {
+						min, points[i].Cluster = distance, uint64(ii)
+					}
+				case complex64:
+					if cmplx.Abs(complex128(dist)) < cmplx.Abs(complex128(any(min).(complex64))) {
+						min, points[i].Cluster = distance, uint64(ii)
+					}
+				case complex128:
+					if cmplx.Abs(dist) > cmplx.Abs(any(min).(complex128)) {
+						min, points[i].Cluster = distance, uint64(ii)
+					}
+				}
+			}
+		}
+	}
+
 	clusters := make([]uint64, x.S[1])
 	for i := range points {
 		clusters[points[i].Index] = points[i].Cluster
