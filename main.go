@@ -136,7 +136,7 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 	}
 	rng := rand.New(rand.NewSource(1))
 	current := 0
-	for range x.S[1] * 1024 {
+	for range x.S[1] * 32 * 1024 {
 		selected, total := exp.Convert[T](rng.Float64()), T(0.0)
 	outer:
 		for i, value := range distribution[current] {
