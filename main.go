@@ -251,6 +251,139 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 	for i := range points {
 		clusters[points[i].Index] = points[i].Cluster
 	}
+
+	{
+		means := make([]T, k)
+		counts := make([]T, k)
+		stddevs := make([]T, k)
+		for i := range distribution {
+			for ii := range points {
+				distance := T(0.0)
+				for iii := range points[ii].Coord {
+					diff := points[i].Coord[iii] - points[ii].Coord[iii]
+					distance += diff * diff
+				}
+				means[points[i].Cluster] += distance
+				counts[points[i].Cluster]++
+			}
+		}
+		for i := range means {
+			means[i] /= counts[i]
+		}
+		for i := range distribution {
+			for ii := range points {
+				distance := T(0.0)
+				for iii := range points[ii].Coord {
+					diff := points[i].Coord[iii] - points[ii].Coord[iii]
+					distance += diff * diff
+				}
+				diff := mean - distance
+				stddevs[points[i].Cluster] += diff * diff
+			}
+		}
+		for i := range stddevs {
+			stddevs[i] = stddevs[i] / counts[i]
+		}
+
+		for i := range distribution {
+			distribution[i] = make([]T, x.S[1])
+			for ii := range points {
+				distance := T(0.0)
+				for iii := range points[ii].Coord {
+					diff := points[i].Coord[iii] - points[ii].Coord[iii]
+					distance += diff * diff
+				}
+				/*distance = exp.Sqrt(distance)
+				if distance != 0 {
+					distance = 1 / distance
+				}*/
+				distribution[i][ii] = exp.Exp(-distance/(2*stddevs[points[i].Cluster])) / exp.Sqrt(2*math.Pi*stddevs[points[i].Cluster])
+			}
+			sum := T(0.0)
+			for _, value := range distribution[i] {
+				sum += value
+			}
+			for ii := range distribution[i] {
+				if sum == 0 {
+					continue
+				}
+				distribution[i][ii] /= sum
+			}
+		}
+
+		for i := range points {
+			points[i].Count = 0
+		}
+
+		current := 0
+		for range x.S[1] * 1024 {
+			selected, total := exp.Convert[T](rng.Float64()), T(0.0)
+		outer2:
+			for i, value := range distribution[current] {
+				total += value
+				switch selected := any(selected).(type) {
+				case float32:
+					if selected < any(total).(float32) {
+						points[i].Count++
+						current = i
+						break outer2
+					}
+				case float64:
+					if selected < any(total).(float64) {
+						points[i].Count++
+						current = i
+						break outer2
+					}
+				case complex64:
+					if cmplx.Abs(complex128(selected)) < cmplx.Abs(complex128(any(total).(complex64))) {
+						points[i].Count++
+						current = i
+						break outer2
+					}
+				case complex128:
+					if cmplx.Abs(selected) < cmplx.Abs(any(total).(complex128)) {
+						points[i].Count++
+						current = i
+						break outer2
+					}
+				}
+			}
+		}
+
+		centers := points[0:k]
+		members := points[k:]
+		for i := range members {
+			max := T(0.0)
+			for ii := range centers {
+				distance := distribution[members[i].Index][centers[ii].Index]
+				switch dist := any(distance).(type) {
+				case float32:
+					if dist > any(max).(float32) {
+						max, members[i].Cluster = distance, uint64(ii)
+					}
+				case float64:
+					if dist > any(max).(float64) {
+						max, members[i].Cluster = distance, uint64(ii)
+					}
+				case complex64:
+					if cmplx.Abs(complex128(dist)) > cmplx.Abs(complex128(any(max).(complex64))) {
+						max, members[i].Cluster = distance, uint64(ii)
+					}
+				case complex128:
+					if cmplx.Abs(dist) > cmplx.Abs(any(max).(complex128)) {
+						max, members[i].Cluster = distance, uint64(ii)
+					}
+				}
+			}
+		}
+		sort.Slice(points, func(i, j int) bool {
+			return points[i].Count > points[j].Count
+		})
+		clusters = make([]uint64, x.S[1])
+		for i := range points {
+			clusters[points[i].Index] = points[i].Cluster
+		}
+	}
 	return clusters, uint64(index)
 }
 
