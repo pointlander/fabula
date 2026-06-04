@@ -349,7 +349,9 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 				}
 			}
 		}
-
+		sort.Slice(points, func(i, j int) bool {
+			return points[i].Count > points[j].Count
+		})
 		centers := points[0:k]
 		members := points[k:]
 		for i := range members {
@@ -376,9 +378,6 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 				}
 			}
 		}
-		sort.Slice(points, func(i, j int) bool {
-			return points[i].Count > points[j].Count
-		})
 		clusters = make([]uint64, x.S[1])
 		for i := range points {
 			clusters[points[i].Index] = points[i].Cluster
