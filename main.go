@@ -18,8 +18,7 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/pointlander/fabula/kmeans"
-	exp "github.com/pointlander/gradient"
+	"github.com/pointlander/gradient"
 
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
@@ -30,7 +29,7 @@ import (
 //go:embed secom.zip
 var Data embed.FS
 
-func euclidean[T exp.Number](a, b *exp.V[T]) *exp.V[T] {
+func euclidean[T gradient.Number](a, b *gradient.V[T]) *gradient.V[T] {
 	if len(a.S) != 2 || len(b.S) != 2 {
 		panic("tensor needs to have two dimensions")
 	}
@@ -38,7 +37,7 @@ func euclidean[T exp.Number](a, b *exp.V[T]) *exp.V[T] {
 	if width != b.S[0] || a.S[1] != b.S[1] {
 		panic("dimensions are not the same")
 	}
-	c, sizeA, sizeB := exp.NewV[T](a.S[1], b.S[1]), len(a.X), len(b.X)
+	c, sizeA, sizeB := gradient.NewV[T](a.S[1], b.S[1]), len(a.X), len(b.X)
 	for i := 0; i < sizeA; i += width {
 		for ii := 0; ii < sizeB; ii += width {
 			av, bv, sum := a.X[i:i+width], b.X[ii:ii+width], T(0.0)
@@ -46,14 +45,14 @@ func euclidean[T exp.Number](a, b *exp.V[T]) *exp.V[T] {
 				diff := (ax - bv[j])
 				sum += diff * diff
 			}
-			c.X = append(c.X, exp.Sqrt(sum))
+			c.X = append(c.X, gradient.Sqrt(sum))
 		}
 	}
 	return c
 }
 
 // Euclidean computes the euclidean distance between all row vectors and all row vectors
-func Euclidean[T exp.Number](k exp.Continuation[T], node int, a, b *exp.V[T], options ...map[string]interface{}) bool {
+func Euclidean[T gradient.Number](k gradient.Continuation[T], node int, a, b *gradient.V[T], options ...map[string]interface{}) bool {
 	width := a.S[0]
 	sizeA, sizeB := len(a.X), len(b.X)
 	c := euclidean(a, b)
@@ -61,7 +60,7 @@ func Euclidean[T exp.Number](k exp.Continuation[T], node int, a, b *exp.V[T], op
 		return true
 	}
 	for _, x := range a.D {
-		if exp.IsInf(x) || exp.IsNaN(x) {
+		if gradient.IsInf(x) || gradient.IsNaN(x) {
 			fmt.Println("euclidean", a.D)
 			panic(x)
 		}
@@ -74,10 +73,10 @@ func Euclidean[T exp.Number](k exp.Continuation[T], node int, a, b *exp.V[T], op
 				if cx == 0 {
 					continue
 				}
-				if exp.IsNaN((ax-bv[j])*d/cx) || exp.IsInf((ax-bv[j])*d/cx) {
+				if gradient.IsNaN((ax-bv[j])*d/cx) || gradient.IsInf((ax-bv[j])*d/cx) {
 					panic("blah")
 				}
-				if exp.IsNaN((bv[j]-ax)*d/cx) || exp.IsInf((bv[j]-ax)*d/cx) {
+				if gradient.IsNaN((bv[j]-ax)*d/cx) || gradient.IsInf((bv[j]-ax)*d/cx) {
 					panic("gah")
 				}
 				ad[j] += (ax - bv[j]) * d / cx
@@ -87,7 +86,7 @@ func Euclidean[T exp.Number](k exp.Continuation[T], node int, a, b *exp.V[T], op
 		}
 	}
 	for _, x := range a.D {
-		if exp.IsInf(x) || exp.IsNaN(x) {
+		if gradient.IsInf(x) || gradient.IsNaN(x) {
 			fmt.Println("euclidean 2", a.D)
 			panic(x)
 		}
@@ -96,7 +95,7 @@ func Euclidean[T exp.Number](k exp.Continuation[T], node int, a, b *exp.V[T], op
 }
 
 // ClusterPageRank clusters some points
-func ClusterPageRank[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
+func ClusterPageRank[T gradient.Number](x *gradient.V[T], k int) ([]uint64, uint64) {
 	type Point struct {
 		Index   int
 		Coord   []T
@@ -145,7 +144,7 @@ func ClusterPageRank[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 				diff := points[i].Coord[iii] - points[ii].Coord[iii]
 				distance += diff * diff
 			}
-			distribution[i][ii] = exp.Exp(-distance/(2*stddev)) / exp.Sqrt(2*math.Pi*stddev)
+			distribution[i][ii] = gradient.Exp(-distance/(2*stddev)) / gradient.Sqrt(2*math.Pi*stddev)
 		}
 		sum := T(0.0)
 		for _, value := range distribution[i] {
@@ -161,7 +160,7 @@ func ClusterPageRank[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 	rng := rand.New(rand.NewSource(1))
 	current := 0
 	for range x.S[1] * 1024 {
-		selected, total := exp.Convert[T](rng.Float64()), T(0.0)
+		selected, total := gradient.Convert[T](rng.Float64()), T(0.0)
 	outer:
 		for i, value := range distribution[current] {
 			total += value
@@ -307,7 +306,7 @@ func main() {
 	length := len(secom)
 	width := len(secom[0])
 	{
-		x := exp.NewV[float64](width, length)
+		x := gradient.NewV[float64](width, length)
 		for i := range length {
 			for ii := range width {
 				f, err := strconv.ParseFloat(secom[i][ii], 64)
@@ -334,7 +333,7 @@ func main() {
 	}
 	fmt.Println()
 	{
-		x := exp.NewV[float64](width, length)
+		x := gradient.NewV[float64](width, length)
 		for i := range length {
 			for ii := range width {
 				f, err := strconv.ParseFloat(secom[i][ii], 64)
@@ -361,7 +360,7 @@ func main() {
 	}
 	var b []float64
 	{
-		context := exp.Context[float64]{}
+		context := gradient.Context[float64]{}
 		set := context.NewSet()
 		set.Add("w0", width, 4)
 		set.AddBias("b0", 4)
@@ -402,20 +401,20 @@ func main() {
 
 		for iteration := range 1024 {
 			set.Zero()
-			l := exp.Gradient(loss).X[0]
+			l := gradient.Gradient(loss).X[0]
 			fmt.Println(iteration, l)
-			set.Adam(exp.B1, exp.B2, .05)
+			set.Adam(gradient.B1, gradient.B2, .05)
 		}
 
 		l0 = Add(Mul(set.Get("w0"), set.Get("input")), set.Get("b0"))
-		l0(func(a *exp.V[float64]) bool {
+		l0(func(a *gradient.V[float64]) bool {
 			b = a.X
 			return true
 		})
 
 	}
 	rng := rand.New(rand.NewSource(1))
-	context := exp.Context[float64]{}
+	context := gradient.Context[float64]{}
 	set := context.NewSet()
 	set.Add("a", 4, length)
 	set.AddData("b", 4, length)
@@ -444,50 +443,12 @@ func main() {
 
 	for iteration := range 1024 {
 		set.Zero()
-		l := exp.Gradient(loss).X[0]
+		l := gradient.Gradient(loss).X[0]
 		fmt.Println(iteration, l)
-		set.Adam(exp.B1, exp.B2, .05)
+		set.Adam(gradient.B1, gradient.B2, .05)
 	}
 
 	a := set.ByName["a"].X
-	input := make([][]float64, length)
-	for i := range length {
-		input[i] = make([]float64, set.ByName["a"].S[0])
-		for ii := range input[i] {
-			input[i][ii] = a[i*set.ByName["a"].S[0]+ii]
-		}
-	}
-	meta := make([][]float64, length)
-	for i := range meta {
-		meta[i] = make([]float64, length)
-	}
-	for i := 0; i < 100; i++ {
-		clusters, _, err := kmeans.Kmeans(int64(i+1), input, 2, kmeans.SquaredEuclideanDistance, -1)
-		if err != nil {
-			panic(err)
-		}
-		for i := 0; i < len(meta); i++ {
-			target := clusters[i]
-			for j, v := range clusters {
-				if v == target {
-					meta[i][j]++
-				}
-			}
-		}
-	}
-	clusters, _, err := kmeans.Kmeans(1, meta, 2, kmeans.SquaredEuclideanDistance, -1)
-	if err != nil {
-		panic(err)
-	}
-	aa := make(map[string][2]int)
-	for i := range label {
-		histogram := aa[label[i][0]]
-		histogram[clusters[i]]++
-		aa[label[i][0]] = histogram
-	}
-	for k, v := range aa {
-		fmt.Println(k, v)
-	}
 
 	{
 		fmt.Println()
@@ -518,10 +479,9 @@ func main() {
 	}
 
 	{
-		input := make([][]float64, length)
+		a := gradient.NewV[float64](width, length)
 		for i := range secom {
 			sum := 0.0
-			input[i] = make([]float64, width)
 			for ii := range secom[i] {
 				f, err := strconv.ParseFloat(secom[i][ii], 64)
 				if err != nil {
@@ -530,34 +490,16 @@ func main() {
 				if math.IsNaN(f) {
 					f = 0
 				}
-				input[i][ii] = f
+				a.X = append(a.X, f)
 				sum += f
 			}
-			for ii := range input[i] {
-				input[i][ii] /= sum
+			for ii := range a.X {
+				a.X[ii] /= sum
 			}
 		}
-		meta := make([][]float64, length)
-		for i := range meta {
-			meta[i] = make([]float64, length)
-		}
-		for i := 0; i < 100; i++ {
-			clusters, _, err := kmeans.Kmeans(int64(i+1), input, 2, kmeans.SquaredEuclideanDistance, -1)
-			if err != nil {
-				panic(err)
-			}
-			for i := 0; i < len(meta); i++ {
-				target := clusters[i]
-				for j, v := range clusters {
-					if v == target {
-						meta[i][j]++
-					}
-				}
-			}
-		}
-		clusters, _, err := kmeans.Kmeans(1, meta, 2, kmeans.SquaredEuclideanDistance, -1)
-		if err != nil {
-			panic(err)
+		clusters := a.ClusterKMeansPlusPlus(1, 2, 100)
+		if clusters == nil {
+			panic("clustering failed")
 		}
 		aa := make(map[string][2]int)
 		for i := range label {
