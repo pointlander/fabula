@@ -95,6 +95,7 @@ func Euclidean[T exp.Number](k exp.Continuation[T], node int, a, b *exp.V[T], op
 	return false
 }
 
+// ClusterKMeansPlusPlus clusters some points
 func ClusterKMeansPlusPlus[T exp.Number](input *exp.V[T], seed int64, k int, maxIterations int) []int {
 	type Point []T
 
@@ -288,8 +289,40 @@ func ClusterKMeansPlusPlus[T exp.Number](input *exp.V[T], seed int64, k int, max
 	return members
 }
 
-// Cluster clusters some points
-func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
+// ClusterKMeansPlusPlusMeta clusters some points
+func ClusterKMeansPlusPlusMeta[T exp.Number](input *exp.V[T], seed int64, k int, maxIterations, samples int) []int {
+	length := input.S[1]
+	meta := make([][]T, length)
+	for i := range meta {
+		meta[i] = make([]T, length)
+	}
+	for i := 0; i < samples; i++ {
+		clusters := ClusterKMeansPlusPlus(input, int64(i+1), k, maxIterations)
+		if clusters == nil {
+			panic("clustering failed")
+		}
+		for i := 0; i < len(meta); i++ {
+			target := clusters[i]
+			for j, v := range clusters {
+				if v == target {
+					meta[i][j]++
+				}
+			}
+		}
+	}
+	m := exp.NewV[T](length, length)
+	for _, row := range meta {
+		m.X = append(m.X, row...)
+	}
+	clusters := ClusterKMeansPlusPlus(m, 1, k, maxIterations)
+	if clusters == nil {
+		panic("clustering failed")
+	}
+	return clusters
+}
+
+// ClusterPageRank clusters some points
+func ClusterPageRank[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 	type Point struct {
 		Index   int
 		Coord   []T
@@ -338,10 +371,6 @@ func Cluster[T exp.Number](x *exp.V[T], k int) ([]uint64, uint64) {
 				diff := points[i].Coord[iii] - points[ii].Coord[iii]
 				distance += diff * diff
 			}
-			/*distance = exp.Sqrt(distance)
-			if distance != 0 {
-				distance = 1 / distance
-			}*/
 			distribution[i][ii] = exp.Exp(-distance/(2*stddev)) / exp.Sqrt(2*math.Pi*stddev)
 		}
 		sum := T(0.0)
@@ -544,7 +573,7 @@ func main() {
 				x.X = append(x.X, f)
 			}
 		}
-		clusters, _ := Cluster(x, 2)
+		clusters, _ := ClusterPageRank(x, 2)
 		aa := make(map[string][2]int)
 		for i := range clusters {
 			histogram := aa[label[i][0]]
@@ -688,7 +717,21 @@ func main() {
 
 	{
 		fmt.Println()
-		clusters, _ := Cluster(set.ByName["a"], 2)
+		clusters := ClusterKMeansPlusPlusMeta(set.ByName["a"], 1, 2, 100, 100)
+		aa := make(map[string][2]int)
+		for i := range label {
+			histogram := aa[label[i][0]]
+			histogram[clusters[i]]++
+			aa[label[i][0]] = histogram
+		}
+		for k, v := range aa {
+			fmt.Println(k, v)
+		}
+	}
+
+	{
+		fmt.Println()
+		clusters, _ := ClusterPageRank(set.ByName["a"], 2)
 		aa := make(map[string][2]int)
 		for i := range label {
 			histogram := aa[label[i][0]]
