@@ -481,7 +481,6 @@ func main() {
 	{
 		a := gradient.NewV[float64](width, length)
 		for i := range secom {
-			sum := 0.0
 			for ii := range secom[i] {
 				f, err := strconv.ParseFloat(secom[i][ii], 64)
 				if err != nil {
@@ -491,13 +490,9 @@ func main() {
 					f = 0
 				}
 				a.X = append(a.X, f)
-				sum += f
-			}
-			for ii := range a.X {
-				a.X[ii] /= sum
 			}
 		}
-		clusters := a.ClusterKMeansPlusPlus(1, 2, 100)
+		clusters := a.ClusterKMeansPlusPlusMeta(1, 2, 100, 100)
 		if clusters == nil {
 			panic("clustering failed")
 		}
