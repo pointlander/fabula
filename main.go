@@ -296,8 +296,9 @@ func ClusterKMeansPlusPlusMeta[T exp.Number](input *exp.V[T], seed int64, k int,
 	for i := range meta {
 		meta[i] = make([]T, length)
 	}
+	rng := rand.New(rand.NewSource(seed))
 	for i := 0; i < samples; i++ {
-		clusters := ClusterKMeansPlusPlus(input, int64(i+1), k, maxIterations)
+		clusters := ClusterKMeansPlusPlus(input, rng.Int63(), k, maxIterations)
 		if clusters == nil {
 			panic("clustering failed")
 		}
@@ -314,7 +315,7 @@ func ClusterKMeansPlusPlusMeta[T exp.Number](input *exp.V[T], seed int64, k int,
 	for _, row := range meta {
 		m.X = append(m.X, row...)
 	}
-	clusters := ClusterKMeansPlusPlus(m, 1, k, maxIterations)
+	clusters := ClusterKMeansPlusPlus(m, rng.Int63(), k, maxIterations)
 	if clusters == nil {
 		panic("clustering failed")
 	}
@@ -717,7 +718,7 @@ func main() {
 
 	{
 		fmt.Println()
-		clusters := ClusterKMeansPlusPlusMeta(set.ByName["a"], 1, 2, 100, 100)
+		clusters := ClusterKMeansPlusPlusMeta(set.ByName["a"], 5, 2, 100, 100)
 		aa := make(map[string][2]int)
 		for i := range label {
 			histogram := aa[label[i][0]]
