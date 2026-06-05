@@ -24,6 +24,8 @@ github.com/pointlander/gradient v0.0.0-20260528212541-d32d35e003ec h1:Kj5WTpfua/
 github.com/pointlander/gradient v0.0.0-20260528212541-d32d35e003ec/go.mod h1:DCOJTERZdaFh66jq2rw2rlM2q1VHbdFucKvj6Wa2zlc=
 github.com/pointlander/gradient v0.0.0-20260602015608-0cd43bdb9e29 h1:7OGVu5ALP65lUqL7DaCUnc+tNS6Bk4NU86klEgJZG1w=
 github.com/pointlander/gradient v0.0.0-20260602015608-0cd43bdb9e29/go.mod h1:rvzoG8ygjIUHETrjfZTTE8hZCEoKmLi49+cpKsd9h3I=
+github.com/pointlander/gradient v0.0.0-20260605012118-a3090c563433 h1:0nZAGs8ORUuSPA4Up0mBn5hIwJb3Op7cVBdlGmYjQfc=
+github.com/pointlander/gradient v0.0.0-20260605012118-a3090c563433/go.mod h1:rvzoG8ygjIUHETrjfZTTE8hZCEoKmLi49+cpKsd9h3I=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
