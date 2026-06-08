@@ -9,13 +9,12 @@ import (
 	"bytes"
 	"embed"
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"image/color"
 	"io"
 	"math"
-	"math/cmplx"
 	"math/rand"
-	"sort"
 	"strconv"
 
 	"github.com/pointlander/gradient"
@@ -29,227 +28,13 @@ import (
 //go:embed secom.zip
 var Data embed.FS
 
-func euclidean[T gradient.Number](a, b *gradient.V[T]) *gradient.V[T] {
-	if len(a.S) != 2 || len(b.S) != 2 {
-		panic("tensor needs to have two dimensions")
-	}
-	width := a.S[0]
-	if width != b.S[0] || a.S[1] != b.S[1] {
-		panic("dimensions are not the same")
-	}
-	c, sizeA, sizeB := gradient.NewV[T](a.S[1], b.S[1]), len(a.X), len(b.X)
-	for i := 0; i < sizeA; i += width {
-		for ii := 0; ii < sizeB; ii += width {
-			av, bv, sum := a.X[i:i+width], b.X[ii:ii+width], T(0.0)
-			for j, ax := range av {
-				diff := (ax - bv[j])
-				sum += diff * diff
-			}
-			c.X = append(c.X, gradient.Sqrt(sum))
-		}
-	}
-	return c
-}
+var (
+	// FlagFull full mode
+	FlagFull = flag.Bool("full", false, "full mode")
+)
 
-// Euclidean computes the euclidean distance between all row vectors and all row vectors
-func Euclidean[T gradient.Number](k gradient.Continuation[T], node int, a, b *gradient.V[T], options ...map[string]interface{}) bool {
-	width := a.S[0]
-	sizeA, sizeB := len(a.X), len(b.X)
-	c := euclidean(a, b)
-	if k(c) {
-		return true
-	}
-	for _, x := range a.D {
-		if gradient.IsInf(x) || gradient.IsNaN(x) {
-			fmt.Println("euclidean", a.D)
-			panic(x)
-		}
-	}
-	index := 0
-	for i := 0; i < sizeA; i += width {
-		for ii := 0; ii < sizeB; ii += width {
-			av, bv, cx, ad, bd, d := a.X[i:i+width], b.X[ii:ii+width], c.X[index], a.D[i:i+width], b.D[ii:ii+width], c.D[index]
-			for j, ax := range av {
-				if cx == 0 {
-					continue
-				}
-				if gradient.IsNaN((ax-bv[j])*d/cx) || gradient.IsInf((ax-bv[j])*d/cx) {
-					panic("blah")
-				}
-				if gradient.IsNaN((bv[j]-ax)*d/cx) || gradient.IsInf((bv[j]-ax)*d/cx) {
-					panic("gah")
-				}
-				ad[j] += (ax - bv[j]) * d / cx
-				bd[j] += (bv[j] - ax) * d / cx
-			}
-			index++
-		}
-	}
-	for _, x := range a.D {
-		if gradient.IsInf(x) || gradient.IsNaN(x) {
-			fmt.Println("euclidean 2", a.D)
-			panic(x)
-		}
-	}
-	return false
-}
-
-// ClusterPageRank clusters some points
-func ClusterPageRank[T gradient.Number](x *gradient.V[T], k int) ([]uint64, uint64) {
-	type Point struct {
-		Index   int
-		Coord   []T
-		Count   uint64
-		Cluster uint64
-	}
-	points := make([]Point, x.S[1])
-	for i := range x.S[1] {
-		points[i].Index = i
-		points[i].Coord = x.X[i*x.S[0] : i*x.S[0]+x.S[0]]
-	}
-	distribution := make([][]T, x.S[1])
-	mean := T(0.0)
-	count := T(0.0)
-	stddev := T(0.0)
-	for i := range distribution {
-		for ii := range points {
-			distance := T(0.0)
-			for iii := range points[ii].Coord {
-				diff := points[i].Coord[iii] - points[ii].Coord[iii]
-				distance += diff * diff
-			}
-			mean += distance
-			count++
-		}
-	}
-	mean /= count
-	for i := range distribution {
-		for ii := range points {
-			distance := T(0.0)
-			for iii := range points[ii].Coord {
-				diff := points[i].Coord[iii] - points[ii].Coord[iii]
-				distance += diff * diff
-			}
-			diff := mean - distance
-			stddev += diff * diff
-		}
-	}
-	stddev = stddev / count
-
-	for i := range distribution {
-		distribution[i] = make([]T, x.S[1])
-		for ii := range points {
-			distance := T(0.0)
-			for iii := range points[ii].Coord {
-				diff := points[i].Coord[iii] - points[ii].Coord[iii]
-				distance += diff * diff
-			}
-			distribution[i][ii] = gradient.Exp(-distance/(2*stddev)) / gradient.Sqrt(2*math.Pi*stddev)
-		}
-		sum := T(0.0)
-		for _, value := range distribution[i] {
-			sum += value
-		}
-		for ii := range distribution[i] {
-			if sum == 0 {
-				continue
-			}
-			distribution[i][ii] /= sum
-		}
-	}
-	rng := rand.New(rand.NewSource(1))
-	current := 0
-	for range x.S[1] * 1024 {
-		selected, total := gradient.Convert[T](rng.Float64()), T(0.0)
-	outer:
-		for i, value := range distribution[current] {
-			total += value
-			switch selected := any(selected).(type) {
-			case float32:
-				if selected < any(total).(float32) {
-					points[i].Count++
-					current = i
-					break outer
-				}
-			case float64:
-				if selected < any(total).(float64) {
-					points[i].Count++
-					current = i
-					break outer
-				}
-			case complex64:
-				if cmplx.Abs(complex128(selected)) < cmplx.Abs(complex128(any(total).(complex64))) {
-					points[i].Count++
-					current = i
-					break outer
-				}
-			case complex128:
-				if cmplx.Abs(selected) < cmplx.Abs(any(total).(complex128)) {
-					points[i].Count++
-					current = i
-					break outer
-				}
-			}
-		}
-	}
-	sort.Slice(points, func(i, j int) bool {
-		return points[i].Count > points[j].Count
-	})
-	variance := func(points []Point) float64 {
-		sum := 0.0
-		for i := range points {
-			sum += float64(points[i].Count)
-		}
-		avg := sum / float64(len(points))
-		v := 0.0
-		for i := range points {
-			diff := avg - float64(points[i].Count)
-			v += diff * diff
-		}
-		return v / float64(len(points))
-	}
-	varab := variance(points)
-	max, index := 0.0, 0
-	for i := 1; i < len(points)-1; i++ {
-		vara, varb := variance(points[0:i]), variance(points[i:len(points)])
-		if diff := varab - (vara + varb); diff > max {
-			max, index = diff, i
-		}
-	}
-	centers := points[0:k]
-	members := points[k:]
-	for i := range members {
-		max := T(0.0)
-		for ii := range centers {
-			distance := distribution[members[i].Index][centers[ii].Index]
-			switch dist := any(distance).(type) {
-			case float32:
-				if dist > any(max).(float32) {
-					max, members[i].Cluster = distance, uint64(ii)
-				}
-			case float64:
-				if dist > any(max).(float64) {
-					max, members[i].Cluster = distance, uint64(ii)
-				}
-			case complex64:
-				if cmplx.Abs(complex128(dist)) > cmplx.Abs(complex128(any(max).(complex64))) {
-					max, members[i].Cluster = distance, uint64(ii)
-				}
-			case complex128:
-				if cmplx.Abs(dist) > cmplx.Abs(any(max).(complex128)) {
-					max, members[i].Cluster = distance, uint64(ii)
-				}
-			}
-		}
-	}
-	clusters := make([]uint64, x.S[1])
-	for i := range points {
-		clusters[points[i].Index] = points[i].Cluster
-	}
-	return clusters, uint64(index)
-}
-
-func main() {
+// FullMode is the full mode
+func FullMode() {
 	file, err := Data.Open("secom.zip")
 	if err != nil {
 		panic(err)
@@ -346,7 +131,7 @@ func main() {
 				x.X = append(x.X, f)
 			}
 		}
-		clusters, _ := ClusterPageRank(x, 2)
+		clusters, _ := x.ClusterPageRank(2)
 		aa := make(map[string][2]int)
 		for i := range clusters {
 			histogram := aa[label[i][0]]
@@ -424,7 +209,7 @@ func main() {
 	}
 
 	//Inv := context.U(context.Inv)
-	//Euclidean := context.B(Euclidean)
+	//Euclidean := context.B(context.Euclidean)
 	Square := context.U(context.Square)
 	Mul := context.B(context.Mul)
 	Dropout := context.U(context.Dropout)
@@ -466,7 +251,7 @@ func main() {
 
 	{
 		fmt.Println()
-		clusters, _ := ClusterPageRank(set.ByName["a"], 2)
+		clusters, _ := set.ByName["a"].ClusterPageRank(2)
 		aa := make(map[string][2]int)
 		for i := range label {
 			histogram := aa[label[i][0]]
@@ -632,5 +417,14 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+	}
+}
+
+func main() {
+	flag.Parse()
+
+	if *FlagFull {
+		FullMode()
+		return
 	}
 }

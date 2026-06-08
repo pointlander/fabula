@@ -3,7 +3,7 @@ module github.com/pointlander/fabula
 go 1.25.0
 
 require (
-	github.com/pointlander/gradient v0.0.0-20260605065224-7da701036cdf
+	github.com/pointlander/gradient v0.0.0-20260608012539-2f93be651124
 	gonum.org/v1/plot v0.17.0
 )
 
