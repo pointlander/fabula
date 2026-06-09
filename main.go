@@ -427,4 +427,111 @@ func main() {
 		FullMode()
 		return
 	}
+
+	file, err := Data.Open("secom.zip")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		panic(err)
+	}
+
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		panic(err)
+	}
+	var secom [][]string
+	var label [][]string
+	for _, f := range reader.File {
+		if f.Name == "secom.data" {
+			input, err := f.Open()
+			if err != nil {
+				panic(err)
+			}
+			reader := csv.NewReader(input)
+			reader.Comma = ' '
+			secom, err = reader.ReadAll()
+			if err != nil {
+				panic(err)
+			}
+			input.Close()
+		} else if f.Name == "secom_labels.data" {
+			input, err := f.Open()
+			if err != nil {
+				panic(err)
+			}
+			reader := csv.NewReader(input)
+			reader.Comma = ' '
+			label, err = reader.ReadAll()
+			if err != nil {
+				panic(err)
+			}
+			input.Close()
+		}
+	}
+
+	rng := rand.New(rand.NewSource(1))
+	length, width := len(secom), len(secom[0])
+	a, b := rng.Perm(length), rng.Perm(length)
+	for i := range length % 33 {
+		a = append(a, a[i])
+		b = append(b, b[i])
+	}
+	context := gradient.Context[float64]{}
+	for s := 0; s < length; s += 33 {
+		set := context.NewSet()
+		set.Add("a", width, 33)
+		set.AddData("b", width, 33)
+		set.InitAdam(rng)
+		for ii := range 33 {
+			for iii := range width {
+				f, err := strconv.ParseFloat(secom[a[(s+ii)%33]][iii], 64)
+				if err != nil {
+					panic(err)
+				}
+				if math.IsNaN(f) {
+					f = 0
+				}
+				set.ByName["a"].X[ii*width+iii] = f * 1e-4
+			}
+		}
+		for i := 0; i < length; i += 33 {
+			for ii := range 33 {
+				for iii := range width {
+					f, err := strconv.ParseFloat(secom[b[(i+ii)%33]][iii], 64)
+					if err != nil {
+						panic(err)
+					}
+					if math.IsNaN(f) {
+						f = 0
+					}
+					set.ByName["b"].X[ii*width+iii] = f * 1e-4
+				}
+			}
+			drop := .3
+			dropout := map[string]interface{}{
+				"rng":  rng,
+				"drop": &drop,
+			}
+			Dropout := context.U(context.Dropout)
+			Square := context.U(context.Square)
+			Mul := context.B(context.Mul)
+			Euclidean := context.B(context.Euclidean)
+			Quadratic := context.B(context.Quadratic)
+			Avg := context.U(context.Avg)
+			Inv := context.U(context.Inv)
+			loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout), Inv(Euclidean(set.Get("b"), set.Get("b")))),
+				Mul(Dropout(Square(set.Get("b")), dropout), Inv(Euclidean(set.Get("a"), set.Get("a"))))))
+			for iteration := range 8 {
+				set.Zero()
+				l := gradient.Gradient(loss).X[0]
+				fmt.Println(iteration, l)
+				set.Adam(gradient.B1, gradient.B2, 1e-1)
+			}
+		}
+	}
+	_ = label
 }
