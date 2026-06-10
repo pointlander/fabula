@@ -521,7 +521,7 @@ func main() {
 					"rng":  rng,
 					"drop": &drop,
 				}
-				Dropout := context.U(context.Dropout)
+				Dropout := context.U(context.DropoutMatrix)
 				Square := context.U(context.Square)
 				Mul := context.B(context.Mul)
 				Euclidean := context.B(context.Euclidean)
