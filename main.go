@@ -481,6 +481,7 @@ func main() {
 		b = append(b, b[i])
 	}
 	context := gradient.Context[float64]{}
+	results := gradient.NewV[float64](width, length)
 	for s := 0; s < length; s += 33 {
 		set := context.NewSet()
 		set.Add("a", width, 33)
@@ -532,6 +533,20 @@ func main() {
 				set.Adam(gradient.B1, gradient.B2, 1e-1)
 			}
 		}
+		results.X = append(results.X, set.ByName["a"].X...)
 	}
-	_ = label
+	clusters := results.ClusterKMeansPlusPlusMeta(1, 2, 100, 100)
+	if clusters == nil {
+		panic("clustering failed")
+	}
+	aa := make(map[string][2]int)
+	for i := range label {
+		histogram := aa[label[a[i]][0]]
+		histogram[clusters[i]]++
+		aa[label[a[i]][0]] = histogram
+	}
+	fmt.Println()
+	for k, v := range aa {
+		fmt.Println(k, v)
+	}
 }
