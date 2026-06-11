@@ -632,19 +632,20 @@ func main() {
 	}
 
 	rng := rand.New(rand.NewSource(1))
+	const height = 33
 	length, width := len(secom), len(secom[0])
 	a := rng.Perm(length)
-	for i := range length%33 + 1 {
+	for i := range length%height + 1 {
 		a = append(a, a[i])
 	}
 	context := gradient.Context[float64]{}
 	results := gradient.NewV[float64](width, length)
-	for s := 0; s < length; s += 33 {
+	for s := 0; s < length; s += height {
 		set := context.NewSet()
-		set.Add("a", 4*width, 33)
-		set.AddData("b", width, 33)
+		set.Add("a", 4*width, height)
+		set.AddData("b", width, height)
 		set.InitAdam(rng)
-		/*for ii := range 33 {
+		/*for ii := range height {
 			for iii := range width {
 				f, err := strconv.ParseFloat(secom[a[s+ii]][iii], 64)
 				if err != nil {
@@ -656,18 +657,18 @@ func main() {
 				set.ByName["a"].X[ii*width+iii] = f * 1e-4
 			}
 		}*/
-		max, result := make([]uint64, 33), gradient.NewV[float64](width, 33)
+		max, result := make([]uint64, height), gradient.NewV[float64](width, height)
 		result.X = result.X[:cap(result.X)]
 		for iteration := range 128 {
 			b := rng.Perm(length)
-			for i := range length%33 + 1 {
+			for i := range length%height + 1 {
 				b = append(b, b[i])
 			}
 
-			/*for i := 0; i < length; i += 33*/
+			/*for i := 0; i < length; i += height*/
 			{
 				i := s
-				for ii := range 33 {
+				for ii := range height {
 					for iii := range width {
 						f, err := strconv.ParseFloat(secom[a[i+ii]][iii], 64)
 						if err != nil {
