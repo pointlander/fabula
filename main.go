@@ -14,7 +14,9 @@ import (
 	"image/color"
 	"io"
 	"math"
+	"math/cmplx"
 	"math/rand"
+	"sort"
 	"strconv"
 
 	"github.com/pointlander/gradient"
@@ -420,6 +422,162 @@ func FullMode() {
 	}
 }
 
+type Point[T gradient.Number] struct {
+	Index   int
+	Coord   []T
+	Count   uint64
+	Cluster uint64
+}
+
+// ClusterPageRank clusters some points
+func ClusterPageRank[T gradient.Number](a *gradient.V[T], k int) ([]uint64, uint64, []Point[T]) {
+	points := make([]Point[T], a.S[1])
+	for i := range a.S[1] {
+		points[i].Index = i
+		points[i].Coord = a.X[i*a.S[0] : i*a.S[0]+a.S[0]]
+	}
+	distribution := make([][]T, a.S[1])
+	mean := T(0.0)
+	count := T(0.0)
+	stddev := T(0.0)
+	for i := range distribution {
+		for ii := range points {
+			distance := T(0.0)
+			for iii := range points[ii].Coord {
+				diff := points[i].Coord[iii] - points[ii].Coord[iii]
+				distance += diff * diff
+			}
+			mean += distance
+			count++
+		}
+	}
+	mean /= count
+	for i := range distribution {
+		for ii := range points {
+			distance := T(0.0)
+			for iii := range points[ii].Coord {
+				diff := points[i].Coord[iii] - points[ii].Coord[iii]
+				distance += diff * diff
+			}
+			diff := mean - distance
+			stddev += diff * diff
+		}
+	}
+	stddev = stddev / count
+
+	for i := range distribution {
+		distribution[i] = make([]T, a.S[1])
+		for ii := range points {
+			distance := T(0.0)
+			for iii := range points[ii].Coord {
+				diff := points[i].Coord[iii] - points[ii].Coord[iii]
+				distance += diff * diff
+			}
+			distribution[i][ii] = gradient.Exp(-distance/(2*stddev)) / gradient.Sqrt(2*math.Pi*stddev)
+		}
+		sum := T(0.0)
+		for _, value := range distribution[i] {
+			sum += value
+		}
+		for ii := range distribution[i] {
+			if sum == 0 {
+				continue
+			}
+			distribution[i][ii] /= sum
+		}
+	}
+	rng := rand.New(rand.NewSource(1))
+	current := 0
+	for range a.S[1] * 1024 {
+		selected, total := gradient.Convert[T](rng.Float64()), T(0.0)
+	outer:
+		for i, value := range distribution[current] {
+			total += value
+			switch selected := any(selected).(type) {
+			case float32:
+				if selected < any(total).(float32) {
+					points[i].Count++
+					current = i
+					break outer
+				}
+			case float64:
+				if selected < any(total).(float64) {
+					points[i].Count++
+					current = i
+					break outer
+				}
+			case complex64:
+				if cmplx.Abs(complex128(selected)) < cmplx.Abs(complex128(any(total).(complex64))) {
+					points[i].Count++
+					current = i
+					break outer
+				}
+			case complex128:
+				if cmplx.Abs(selected) < cmplx.Abs(any(total).(complex128)) {
+					points[i].Count++
+					current = i
+					break outer
+				}
+			}
+		}
+	}
+	sort.Slice(points, func(i, j int) bool {
+		return points[i].Count > points[j].Count
+	})
+	variance := func(points []Point[T]) float64 {
+		sum := 0.0
+		for i := range points {
+			sum += float64(points[i].Count)
+		}
+		avg := sum / float64(len(points))
+		v := 0.0
+		for i := range points {
+			diff := avg - float64(points[i].Count)
+			v += diff * diff
+		}
+		return v / float64(len(points))
+	}
+	varab := variance(points)
+	max, index := 0.0, 0
+	for i := 1; i < len(points)-1; i++ {
+		vara, varb := variance(points[0:i]), variance(points[i:len(points)])
+		if diff := varab - (vara + varb); diff > max {
+			max, index = diff, i
+		}
+	}
+	centers := points[0:k]
+	members := points[k:]
+	for i := range members {
+		max := T(0.0)
+		for ii := range centers {
+			distance := distribution[members[i].Index][centers[ii].Index]
+			switch dist := any(distance).(type) {
+			case float32:
+				if dist > any(max).(float32) {
+					max, members[i].Cluster = distance, uint64(ii)
+				}
+			case float64:
+				if dist > any(max).(float64) {
+					max, members[i].Cluster = distance, uint64(ii)
+				}
+			case complex64:
+				if cmplx.Abs(complex128(dist)) > cmplx.Abs(complex128(any(max).(complex64))) {
+					max, members[i].Cluster = distance, uint64(ii)
+				}
+			case complex128:
+				if cmplx.Abs(dist) > cmplx.Abs(any(max).(complex128)) {
+					max, members[i].Cluster = distance, uint64(ii)
+				}
+			}
+		}
+	}
+	clusters := make([]uint64, a.S[1])
+	for i := range points {
+		clusters[points[i].Index] = points[i].Cluster
+	}
+	return clusters, uint64(index), points
+}
+
 func main() {
 	flag.Parse()
 
@@ -498,7 +656,9 @@ func main() {
 				set.ByName["a"].X[ii*width+iii] = f * 1e-4
 			}
 		}
-		for iteration := range 4 {
+		max, result := make([]uint64, 33), gradient.NewV[float64](width, 33)
+		result.X = result.X[:cap(result.X)]
+		for iteration := range 16 {
 			b := rng.Perm(length)
 			for i := range length%33 + 1 {
 				b = append(b, b[i])
@@ -533,10 +693,20 @@ func main() {
 				set.Zero()
 				l := gradient.Gradient(loss).X[0]
 				fmt.Println(iteration, l)
-				set.Adam(gradient.B1, gradient.B2, 1e-2)
+				set.Adam(gradient.B1, gradient.B2, 1e-1)
+			}
+			_, _, points := ClusterPageRank(set.ByName["a"], 2)
+			sort.Slice(points, func(i, j int) bool {
+				return points[i].Index < points[j].Index
+			})
+			for i := range points {
+				if points[i].Count > max[i] {
+					max[i] = points[i].Count
+					copy(result.X[i*width:i*width+width], points[i].Coord)
+				}
 			}
 		}
-		results.X = append(results.X, set.ByName["a"].X...)
+		results.X = append(results.X, result.X...)
 	}
 	clusters := results.ClusterKMeansPlusPlusMeta(1, 2, 100, 100)
 	if clusters == nil {
