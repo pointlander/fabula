@@ -658,15 +658,18 @@ func main() {
 		}
 		max, result := make([]uint64, 33), gradient.NewV[float64](width, 33)
 		result.X = result.X[:cap(result.X)]
-		for iteration := range 16 {
+		for iteration := range 33 {
 			b := rng.Perm(length)
 			for i := range length%33 + 1 {
 				b = append(b, b[i])
 			}
-			for i := 0; i < length; i += 33 {
+
+			/*for i := 0; i < length; i += 33*/
+			{
+				i := s
 				for ii := range 33 {
 					for iii := range width {
-						f, err := strconv.ParseFloat(secom[b[i+ii]][iii], 64)
+						f, err := strconv.ParseFloat(secom[a[i+ii]][iii], 64)
 						if err != nil {
 							panic(err)
 						}
