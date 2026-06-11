@@ -658,7 +658,7 @@ func main() {
 		}
 		max, result := make([]uint64, 33), gradient.NewV[float64](width, 33)
 		result.X = result.X[:cap(result.X)]
-		for iteration := range 33 {
+		for iteration := range 128 {
 			b := rng.Perm(length)
 			for i := range length%33 + 1 {
 				b = append(b, b[i])
@@ -687,12 +687,14 @@ func main() {
 				Dropout := context.U(context.DropoutMatrix)
 				Square := context.U(context.Square)
 				Mul := context.B(context.Mul)
-				Euclidean := context.B(context.Euclidean)
+				//Euclidean := context.B(context.Euclidean)
 				Quadratic := context.B(context.Quadratic)
 				Avg := context.U(context.Avg)
-				Inv := context.U(context.Inv)
-				loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout), Inv(Euclidean(set.Get("b"), set.Get("b")))),
-					Mul(Dropout(Square(set.Get("b")), dropout), Inv(Euclidean(set.Get("a"), set.Get("a"))))))
+				//Inv := context.U(context.Inv)
+				T := context.U(context.T)
+				//loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout), Inv(Euclidean(set.Get("b"), set.Get("b")))),
+				//	Mul(Dropout(Square(set.Get("b")), dropout), Inv(Euclidean(set.Get("a"), set.Get("a"))))))
+				loss := Avg(Quadratic(Mul(Dropout(Square(set.Get("a")), dropout), T(set.Get("b"))), T(set.Get("b"))))
 				set.Zero()
 				l := gradient.Gradient(loss).X[0]
 				fmt.Println(iteration, l)
@@ -709,7 +711,7 @@ func main() {
 				}
 			}
 		}
-		results.X = append(results.X, result.X...)
+		results.X = append(results.X, set.ByName["a"].X...)
 	}
 	clusters := results.ClusterKMeansPlusPlusMeta(1, 2, 100, 100)
 	if clusters == nil {
