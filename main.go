@@ -641,10 +641,10 @@ func main() {
 	results := gradient.NewV[float64](width, length)
 	for s := 0; s < length; s += 33 {
 		set := context.NewSet()
-		set.AddBias("a", width, 33)
+		set.Add("a", 4*width, 33)
 		set.AddData("b", width, 33)
 		set.InitAdam(rng)
-		for ii := range 33 {
+		/*for ii := range 33 {
 			for iii := range width {
 				f, err := strconv.ParseFloat(secom[a[s+ii]][iii], 64)
 				if err != nil {
@@ -655,7 +655,7 @@ func main() {
 				}
 				set.ByName["a"].X[ii*width+iii] = f * 1e-4
 			}
-		}
+		}*/
 		max, result := make([]uint64, 33), gradient.NewV[float64](width, 33)
 		result.X = result.X[:cap(result.X)]
 		for iteration := range 128 {
