@@ -644,6 +644,7 @@ func main() {
 		set := context.NewSet()
 		set.Add("a", 4*width, height)
 		set.AddData("b", width, height)
+		rng := rand.New(rand.NewSource(1))
 		set.InitAdam(rng)
 		/*for ii := range height {
 			for iii := range width {
@@ -677,7 +678,13 @@ func main() {
 						if math.IsNaN(f) {
 							f = 0
 						}
-						set.ByName["b"].X[ii*width+iii] = f * 1e-4
+						set.ByName["b"].X[ii*width+iii] = f
+					}
+					b := set.ByName["b"].X[ii*width : ii*width+width]
+					n := gradient.Dot(b, b)
+					n = gradient.Sqrt(n)
+					for i := range b {
+						b[i] = b[i] / n
 					}
 				}
 				drop := .3
