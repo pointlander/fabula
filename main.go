@@ -644,7 +644,7 @@ func main() {
 		set := context.NewSet()
 		set.Add("a", 4*width, height)
 		set.AddData("b", width, height)
-		rng := rand.New(rand.NewSource(1))
+		rng := rand.New(rand.NewSource(8))
 		set.InitAdam(rng)
 		/*for ii := range height {
 			for iii := range width {
